@@ -1,0 +1,17 @@
+{
+  "*.ts": [
+    "prettier --config .prettierrc.js --write",
+    "eslint --fix",
+    "git add"
+  ],
+  "*.tsx": [
+    "prettier --config .prettierrc.js --write",
+    "eslint --fix",
+    "git add"
+  ],
+  "*.js": [
+    "prettier --config .prettierrc.js --write",
+    "eslint --fix",
+    "git add"
+  ]
+}
