@@ -1,111 +1,132 @@
-import React from 'react';
-import type {PropsWithChildren} from 'react';
+import React, {useState} from 'react';
+import {RefreshControl, SafeAreaView} from 'react-native';
+
+import {Fab, Spinner, Text} from 'native-base';
+import {FlashList} from '@shopify/flash-list';
+import Icon from 'react-native-vector-icons/AntDesign';
 import {
-  SafeAreaView,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  useColorScheme,
-  View,
-} from 'react-native';
-
+  useCreateContactsMutation,
+  useDeleteContactsMutation,
+  useGetContactsQuery,
+  useUpdateContactsMutation,
+} from '@modules/home/services';
 import {
-  Colors,
-  DebugInstructions,
-  Header,
-  LearnMoreLinks,
-  ReloadInstructions,
-} from 'react-native/Libraries/NewAppScreen';
-
-type SectionProps = PropsWithChildren<{
-  title: string;
-}>;
-
-function Section({children, title}: SectionProps): React.JSX.Element {
-  const isDarkMode = useColorScheme() === 'dark';
-  return (
-    <View style={styles.sectionContainer}>
-      <Text
-        style={[
-          styles.sectionTitle,
-          {
-            color: isDarkMode ? Colors.white : Colors.black,
-          },
-        ]}>
-        {title}
-      </Text>
-      <Text
-        style={[
-          styles.sectionDescription,
-          {
-            color: isDarkMode ? Colors.light : Colors.dark,
-          },
-        ]}>
-        {children}
-      </Text>
-    </View>
-  );
-}
-
+  AlertDeleteContact,
+  CardContact,
+  ModalAddContact,
+  ModalUpdateContact,
+} from '@modules/home/components';
+import Styles from './styles';
+import {IContact} from './types';
 function App(): React.JSX.Element {
-  const isDarkMode = useColorScheme() === 'dark';
-
-  const backgroundStyle = {
-    backgroundColor: isDarkMode ? Colors.darker : Colors.lighter,
+  const {
+    data: listContacts,
+    isLoading,
+    refetch: refetchDataListContacts,
+    isFetching,
+  } = useGetContactsQuery(1);
+  const [createContact] = useCreateContactsMutation();
+  const [updateContact] = useUpdateContactsMutation();
+  const [deleteContact] = useDeleteContactsMutation();
+  const [isOpenModalAddContact, setOpenModalAddContact] =
+    useState<boolean>(false);
+  const [isOpenModalUpdateContact, setOpenModalUpdateContact] =
+    useState<boolean>(false);
+  const [isOpenAlertDeleteContact, setOpenAlertDeleteContact] =
+    useState<boolean>(false);
+  const [selectedContact, setSelectedContact] = useState<IContact>({});
+  const handleAddContact = (item: IContact) => {
+    createContact(item)
+      .unwrap()
+      .then(() => {
+        refetchDataListContacts();
+        setOpenModalAddContact(false);
+      })
+      .catch(error => console.log(error));
   };
-
+  const handleUpdateContact = (item: IContact) => {
+    updateContact(item)
+      .unwrap()
+      .then(() => {
+        refetchDataListContacts();
+        setOpenModalUpdateContact(false);
+      })
+      .catch(error => console.log(error));
+  };
+  const handleDeleteContact = (item: IContact) => {
+    deleteContact(item?.id as string)
+      .unwrap()
+      .then(() => {
+        refetchDataListContacts();
+        setOpenAlertDeleteContact(false);
+      })
+      .catch(error => console.log(error));
+  };
   return (
-    <SafeAreaView style={backgroundStyle}>
-      <StatusBar
-        barStyle={isDarkMode ? 'light-content' : 'dark-content'}
-        backgroundColor={backgroundStyle.backgroundColor}
+    <SafeAreaView style={Styles.container}>
+      {isLoading ? (
+        <Spinner size={'lg'} accessibilityLabel="Loading Contacts" />
+      ) : (
+        <FlashList<IContact>
+          data={listContacts?.data}
+          keyExtractor={(item, idx) => item + idx.toString()}
+          ListHeaderComponent={
+            <Text m="2" fontSize="2xl" bold>
+              List Contact
+            </Text>
+          }
+          renderItem={({item}) => (
+            <CardContact
+              item={item}
+              onPressEdit={() => {
+                setSelectedContact(item);
+                setOpenModalUpdateContact(true);
+              }}
+              onPressEditDelete={() => {
+                setSelectedContact(item);
+                setOpenAlertDeleteContact(true);
+              }}
+            />
+          )}
+          extraData={listContacts?.data}
+          refreshControl={
+            <RefreshControl
+              refreshing={isFetching}
+              onRefresh={() => refetchDataListContacts()}
+            />
+          }
+        />
+      )}
+      <Fab
+        renderInPortal={false}
+        shadow={2}
+        size="sm"
+        right={10}
+        bottom={50}
+        onPress={() => {
+          setOpenModalAddContact(true);
+        }}
+        icon={<Icon color="white" name="plus" size={24} />}
       />
-      <ScrollView
-        contentInsetAdjustmentBehavior="automatic"
-        style={backgroundStyle}>
-        <Header />
-        <View
-          style={{
-            backgroundColor: isDarkMode ? Colors.black : Colors.white,
-          }}>
-          <Section title="Step One">
-            Edit <Text style={styles.highlight}>App.tsx</Text> to change this
-            screen and then come back to see your edits.
-          </Section>
-          <Section title="See Your Changes">
-            <ReloadInstructions />
-          </Section>
-          <Section title="Debug">
-            <DebugInstructions />
-          </Section>
-          <Section title="Learn More">
-            Read the docs to discover what to do next:
-          </Section>
-          <LearnMoreLinks />
-        </View>
-      </ScrollView>
+      <ModalAddContact
+        onSubmit={item => handleAddContact?.(item)}
+        visible={isOpenModalAddContact}
+        onClose={() => setOpenModalAddContact(false)}
+      />
+      <ModalUpdateContact
+        onSubmit={(item: IContact) => handleUpdateContact?.(item)}
+        visible={isOpenModalUpdateContact}
+        onClose={() => setOpenModalUpdateContact(false)}
+        item={selectedContact}
+      />
+      <AlertDeleteContact
+        onDelete={(item: IContact) => handleDeleteContact?.(item)}
+        visible={isOpenAlertDeleteContact}
+        onClose={() => setOpenAlertDeleteContact(false)}
+        item={selectedContact}
+      />
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  sectionContainer: {
-    marginTop: 32,
-    paddingHorizontal: 24,
-  },
-  sectionTitle: {
-    fontSize: 24,
-    fontWeight: '600',
-  },
-  sectionDescription: {
-    marginTop: 8,
-    fontSize: 18,
-    fontWeight: '400',
-  },
-  highlight: {
-    fontWeight: '700',
-  },
-});
 
 export default App;
